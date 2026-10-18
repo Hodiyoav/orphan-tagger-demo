@@ -1,0 +1,17 @@
+# NON-TAGGABLE: an inline role policy has no tags field in its CRD, so there is nothing
+# to tag. The watcher just removes the finalizer.
+apiVersion: iam.aws.upbound.io/v1beta1
+kind: RolePolicy
+metadata:
+  name: demo-non-taggable-rolepolicy
+  annotations:
+    # Sets the AWS policy name. Also lets the next `make create` adopt the policy that
+    # survives `make delete`.
+    crossplane.io/external-name: demo-policy
+spec:
+  deletionPolicy: Orphan
+  forProvider:
+    roleRef:
+      name: demo-taggable-role
+    policy: |
+      {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Action":"s3:ListAllMyBuckets","Resource":"*"}]}

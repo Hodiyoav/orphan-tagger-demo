@@ -1,0 +1,27 @@
+# Same policy as production (k8s-devops-config/singlidation/crossplane/orphan-tagger):
+# every AWS managed resource gets the orphan-tagger finalizer at CREATE, so the
+# watcher gets a chance to act before Kubernetes lets the object disappear.
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: orphan-add-finalizer
+spec:
+  background: false
+  rules:
+    - name: add-orphan-tagger-finalizer
+      match:
+        any:
+          - resources:
+              kinds: ["*"]
+              operations: [CREATE]
+      preconditions:
+        all:
+          - key: '{{ contains(request.object.apiVersion, ''.aws.upbound.io'') }}'
+            operator: Equals
+            value: true
+      skipBackgroundRequests: true
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            finalizers:
+              - gong.io/orphan-tagger

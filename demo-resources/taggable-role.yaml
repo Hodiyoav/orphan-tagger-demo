@@ -1,0 +1,13 @@
+# TAGGABLE: the CRD has spec.forProvider.tags, so the watcher tags the real
+# AWS resource crossplane-orphaned=true before releasing the MR.
+apiVersion: iam.aws.upbound.io/v1beta1
+kind: Role
+metadata:
+  name: demo-taggable-role
+spec:
+  deletionPolicy: Orphan        # the AWS resource survives the MR deletion
+  forProvider:
+    assumeRolePolicy: |
+      {"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"ec2.amazonaws.com"},"Action":"sts:AssumeRole"}]}
+    tags:
+      owner: platform

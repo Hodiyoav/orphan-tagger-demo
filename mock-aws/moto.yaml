@@ -1,0 +1,76 @@
+# Fake AWS: moto serves the AWS APIs (IAM, Resource Groups Tagging, ...)
+# over plain HTTP. No account, no credentials, nothing leaves the laptop.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aws-mock
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: moto
+  namespace: aws-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: moto}
+  template:
+    metadata:
+      labels: {app: moto}
+    spec:
+      enableServiceLinks: false   # the Service named "moto" would inject MOTO_PORT=tcp://..., which moto parses as its port
+      containers:
+        # moto itself, only reachable inside the pod
+        - name: moto
+          image: motoserver/moto:5.1.22
+          command: [/usr/local/bin/moto_server, -H, 127.0.0.1, -p, "5001"]
+        # tagging shim: what clients talk to on :5000. Adds TagResources support for IAM
+        # roles (moto lacks it) and forwards everything else to moto. See tagging-shim.py.
+        - name: tagging-shim
+          image: motoserver/moto:5.1.22   # reused: it already ships python + boto3
+          command: [python, /shim/tagging-shim.py]
+          ports:
+            - containerPort: 5000
+          readinessProbe:
+            httpGet: {path: /moto-api/, port: 5000}
+          volumeMounts:
+            - {name: shim, mountPath: /shim}
+      volumes:
+        - name: shim
+          configMap:
+            name: tagging-shim   # created by scripts/up.sh from mock-aws/tagging-shim.py
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: moto
+  namespace: aws-mock
+spec:
+  selector: {app: moto}
+  ports:
+    - port: 5000
+      targetPort: 5000
+---
+# Tiny toolbox so `make aws-tags` can ask the fake AWS what is really in it.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-cli
+  namespace: aws-mock
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: aws-cli}
+  template:
+    metadata:
+      labels: {app: aws-cli}
+    spec:
+      containers:
+        - name: aws-cli
+          image: amazon/aws-cli:latest
+          command: [sleep, infinity]
+          env:
+            - {name: AWS_ENDPOINT_URL, value: "http://moto.aws-mock.svc:5000"}
+            - {name: AWS_ACCESS_KEY_ID, value: test}
+            - {name: AWS_SECRET_ACCESS_KEY, value: test}
+            - {name: AWS_DEFAULT_REGION, value: us-east-1}

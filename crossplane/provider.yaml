@@ -1,0 +1,7 @@
+# One provider only. The family provider (ProviderConfig CRD) is pulled in as a dependency.
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-iam
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-iam:v2.5.3
