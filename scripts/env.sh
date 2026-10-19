@@ -8,12 +8,23 @@ CROSSPLANE_CHART=2.3.3
 KYVERNO_CHART=3.9.1
 NS=crossplane-system
 
-k() { kubectl --context "kind-$CLUSTER" "$@"; }
+# Kyverno 1.19 warns on every use of kyverno.io/v1 ClusterPolicy (production uses it too), so the
+# warning is filtered out; every other kubectl message and the exit code pass through unchanged.
+k() {
+  local err rc=0
+  err=$(mktemp)
+  kubectl --context "kind-$CLUSTER" "$@" 2>"$err" || rc=$?
+  grep -v '^Warning: kyverno.io/v1 .* is deprecated' "$err" >&2 || true
+  rm -f "$err"
+  return "$rc"
+}
 
 if [[ -t 1 ]]; then B=$(tput bold); G=$(tput setaf 2); Y=$(tput setaf 3); C=$(tput setaf 6); N=$(tput sgr0)
 else B=""; G=""; Y=""; C=""; N=""; fi
 step()    { printf '\n%s== %s%s\n' "$B$C" "$*" "$N"; }
 explain() { printf '%s   %s%s\n' "$Y" "$*" "$N"; }
+# item <icon> <title>: a blank line, then an icon + bold title, to separate blocks of output
+item()    { printf '\n%s   %s  %s%s\n' "$B$Y" "$1" "$2" "$N"; }
 run()     { printf '%s   $ %s%s\n' "$C" "$*" "$N"; "$@"; }
 mr_table() {
   local out

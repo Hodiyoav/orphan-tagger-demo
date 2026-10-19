@@ -19,10 +19,24 @@ The AWS resource survives (`deletionPolicy: Orphan`) and is now discoverable by 
 ## Run it
 
 ```bash
-make up        # once: kind + fake AWS + Crossplane + 1 AWS provider + Kyverno + orphan-tagger
-make create    # command 1: create a taggable and a non-taggable AWS resource
-make delete    # command 2: delete them, watch the tagger work, see the tag in the fake AWS
-make down      # remove everything
+make demo      # the whole thing, interactively
+make down      # remove everything when you are done
+```
+
+`make demo` prepares the lab (kind + fake AWS + Crossplane + 1 AWS provider + Kyverno +
+orphan-tagger), shows you what it is about to create and asks **[y/N]**, creates the two
+resources and shows the result, asks **[y/N]** again, deletes them and shows the result.
+`make demo YES=1` answers yes to everything.
+
+Each result view shows `kubectl get managed`, the `role` and `rolepolicy` as YAML (with the
+finalizer Kyverno added), and the same objects as moto sees them through the `awsm` aliases below.
+
+Prefer step by step? The same flow is available as separate targets:
+
+```bash
+make up        # once: build the lab
+make create    # create a taggable and a non-taggable AWS resource
+make delete    # delete them, watch the tagger work, see the tag in the fake AWS
 ```
 
 - `make up` ends by listing what it installed (also: `make status`).

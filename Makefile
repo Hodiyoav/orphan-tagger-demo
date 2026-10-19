@@ -1,4 +1,7 @@
-.PHONY: up status create delete aws-tags logs down
+.PHONY: demo up status create delete aws-tags logs down
+
+demo:     ## the whole demo in one command: prepare, confirm, create, confirm, delete (YES=1 skips questions)
+	./scripts/demo.sh $(if $(YES),--yes)
 
 up:       ## build the lab (kind + fake AWS + Crossplane + Kyverno + orphan-tagger)
 	./scripts/up.sh

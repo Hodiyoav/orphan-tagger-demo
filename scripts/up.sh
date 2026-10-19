@@ -56,6 +56,6 @@ k -n "$NS" rollout status deploy/orphan-tagger-watcher --timeout=3m
 "$ROOT/scripts/status.sh"
 
 step "6/6 ready"
-printf '%s   Lab is up. Now run:  make create   then   make delete%s\n' "$G" "$N"
+[[ -n "${QUIET_NEXT:-}" ]] || printf '%s   Lab is up. Now run:  make create   then   make delete%s\n' "$G" "$N"
 explain "To use kubectl/kubectx yourself (your ~/.kube/config is untouched):"
 explain "  export KUBECONFIG=$KUBECONFIG    # context: kind-$CLUSTER"
