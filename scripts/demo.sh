@@ -168,4 +168,13 @@ show_mrs
 show_aws
 summary deleted
 
-printf '\n%s   Done. Run it again with: make demo      Remove the lab with: make down%s\n' "$G" "$N"
+# --yes never removes the lab on its own: an unattended run should leave it for inspection
+if $YES; then
+  printf '\n%s   Done. The lab is still up. Remove it with: make down      Run again: make demo%s\n' "$G" "$N"
+elif confirm "Remove the lab (kind cluster + fake AWS) now?"; then
+  step "Removing the lab"
+  "$ROOT/scripts/down.sh"
+  printf '\n%s   Lab removed. Run it again with: make demo%s\n' "$G" "$N"
+else
+  printf '\n%s   Lab kept. Run it again with: make demo      Remove it later with: make down%s\n' "$G" "$N"
+fi

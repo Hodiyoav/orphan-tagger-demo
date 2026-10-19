@@ -20,16 +20,28 @@ The AWS resource survives (`deletionPolicy: Orphan`) and is now discoverable by 
 
 ```bash
 make demo      # the whole thing, interactively
-make down      # remove everything when you are done
 ```
 
-`make demo` prepares the lab (kind + fake AWS + Crossplane + 1 AWS provider + Kyverno +
-orphan-tagger), shows you what it is about to create and asks **[y/N]**, creates the two
-resources and shows the result, asks **[y/N]** again, deletes them and shows the result.
-`make demo YES=1` answers yes to everything.
+`make demo` does everything in one go and asks you three questions along the way:
 
-Each result view shows `kubectl get managed`, the `role` and `rolepolicy` as YAML (with the
-finalizer Kyverno added), and the same objects as moto sees them through the `awsm` aliases below.
+1. **Prepares the lab:** kind + fake AWS + Crossplane + 1 AWS provider + Kyverno + orphan-tagger,
+   and lists what it installed. No question asked.
+2. **Shows the two manifests it is about to create, then asks `Create these 2 resources? [y/N]`.**
+   It creates them and shows the result.
+3. **Asks `Delete the 2 managed resources now? [y/N]`.** It deletes them, shows what the
+   orphan-tagger did, and shows the result again.
+4. **Asks `Remove the lab now? [y/N]`.** Yes removes the kind cluster; no keeps it for you to poke at
+   (`make down` removes it later).
+
+Answering anything but `y` stops safely and leaves the lab up. `make demo YES=1` answers yes to the
+first two questions and never removes the lab on its own (handy for unattended runs).
+
+Each result view (after create, after delete) shows, in separate icon-titled blocks:
+
+- `kubectl get managed`, and the `role` and `rolepolicy` as YAML. The lines that matter are marked
+  `◀`: the finalizers, `deletionPolicy`, the tags.
+- the same objects as moto sees them, through the `awsm` commands listed below.
+- a framed **🔎 What to look at** summary of the few facts worth checking.
 
 Prefer step by step? The same flow is available as separate targets:
 
@@ -37,6 +49,7 @@ Prefer step by step? The same flow is available as separate targets:
 make up        # once: build the lab
 make create    # create a taggable and a non-taggable AWS resource
 make delete    # delete them, watch the tagger work, see the tag in the fake AWS
+make down      # remove the lab
 ```
 
 - `make up` ends by listing what it installed (also: `make status`).
@@ -53,11 +66,15 @@ make delete    # delete them, watch the tagger work, see the tag in the fake AWS
 | `Role` (IAM role) | yes, its CRD has `spec.forProvider.tags` | tags it `crossplane-orphaned=true`, then removes the finalizer |
 | `RolePolicy` (inline policy) | no, no `tags` field | removes the finalizer only |
 
-`make delete` ends by asking the fake AWS for the role's tags:
+After the delete, the Kubernetes objects are gone but both AWS objects survive, and moto shows the
+role carrying the new tag:
 
 ```
-crossplane-orphaned=true   <-- added by the orphan-tagger
+"Key": "crossplane-orphaned",  ◀
+"Value": "true"
 ```
+
+The policy is still in AWS too; it has no tags, so the orphan-tagger only released its finalizer.
 
 ## What is in the box
 
@@ -68,7 +85,7 @@ crossplane/          ONE provider (provider-aws-iam) + ProviderConfig pointing a
 kyverno/             the orphan-add-finalizer ClusterPolicy (same as production)
 orphan-tagger/       RBAC + Deployment, and watcher/ = the watcher's Go source + Dockerfile
 demo-resources/      the two managed resources you create and delete
-scripts/             up / create / delete / aws-tags / down
+scripts/             demo (the interactive flow) + up / status / create / delete / aws-tags / down
 ```
 
 Versions mirror Gong's: Crossplane 2.3.3, provider-aws v2.5.3.
@@ -82,8 +99,9 @@ Versions mirror Gong's: Crossplane 2.3.3, provider-aws v2.5.3.
   S3 or EC2. A ~50-line proxy, `mock-aws/tagging-shim.py`, sits in front of moto and answers
   that one call for IAM roles by calling IAM `TagRole`; everything else passes through to moto.
   Without it the Role would stay stuck in Terminating.
-- The cluster name can be overridden (`CLUSTER=my-lab make up`) to run a second lab or to avoid
-  clashing with someone else's on a shared Docker daemon.
+- The cluster name can be overridden (`CLUSTER=my-lab make demo`) to run a second lab or to avoid
+  clashing with someone else's on a shared Docker daemon. The kubeconfig then lives at
+  `/tmp/my-lab/kubeconfig`.
 - Credentials are the dummy `test`/`test`. Nothing leaves your machine.
 
 ## Useful extras
@@ -113,4 +131,6 @@ export KUBECONFIG=/tmp/orphan-tagger-demo/kubeconfig   # context: kind-orphan-ta
 kubectx                                                # now lists it
 ```
 
-Kyverno 3.9 warns that `ClusterPolicy` is deprecated; the policy is kept identical to production on purpose.
+Kyverno 3.9 warns that `ClusterPolicy` is deprecated. The policy is kept identical to production on
+purpose, and the scripts hide that one warning from their `kubectl` output (the Helm install notes
+still print a similar line).
